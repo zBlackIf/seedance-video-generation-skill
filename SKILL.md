@@ -5,20 +5,18 @@ description: Generate videos using Volcengine Seedance API. Supports text-to-vid
 
 # Seedance Video Generation
 
+Generate videos using Volcengine Seedance API. Supports text-to-video and image-to-video generation.
+
 ## Quick Start
 
-Text-to-video:
 ```bash
+# Text to video
 python scripts/seedance.py text-to-video --text "description" --duration 5
-```
 
-Image-to-video:
-```bash
+# Image to video
 python scripts/seedance.py image-to-video --image "/path/to/image.jpg" --duration 5
-```
 
-Query task status:
-```bash
+# Query task status
 python scripts/seedance.py query --task-id <task-id>
 ```
 
@@ -28,9 +26,9 @@ python scripts/seedance.py query --task-id <task-id>
 
 Generate video from text prompt.
 
-Required: `--text` - Text prompt for video generation
+**Required:** `--text` - Text prompt for video generation
 
-Optional:
+**Optional parameters:**
 - `--duration` - Duration in seconds (2-12, default: 5)
 - `--resolution` - Resolution: 480p, 720p, 1080p
 - `--ratio` - Aspect ratio: 16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive
@@ -45,9 +43,9 @@ Optional:
 
 Generate video from image.
 
-Required: `--image` - Image URL, base64, or file path
+**Required:** `--image` - Image URL, base64, or file path
 
-Optional:
+**Optional parameters:**
 - `--text` - Text prompt to guide generation
 - `--duration` - Duration in seconds (2-12, default: 5)
 - `--resolution` - Resolution: 480p, 720p, 1080p
@@ -63,15 +61,16 @@ Optional:
 
 Query video generation task status.
 
-Required: `--task-id` - Task ID to query
+**Required:** `--task-id` - Task ID to query
 
-Optional:
-- `--follow` - Poll until task completes
+**Optional:** `--follow` - Poll until task completes
 
 ## Configuration
 
-API key is required. Set via:
-- `~/.config/seedance/config.json` (see config/seedance.json.example)
+API key is required. Configure via:
+- `~/.config/seedance/config.json` (see `config/seedance.json.example`)
 - Environment variable: `ARK_API_KEY`
 
-For complete API reference and model details, see [references/api_reference.md](references/api_reference.md).
+## Additional Documentation
+
+- **API Reference**: [references/api_reference.md](references/api_reference.md) - Complete API parameters, models, error codes, and content types
