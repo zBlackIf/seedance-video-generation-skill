@@ -1,0 +1,23 @@
+{
+  "default": {
+    "ark_api_key": "",
+    "region": "cn-beijing",
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+    "timeout": 300,
+    "poll_interval": 5
+  },
+  "development": {
+    "ark_api_key": "",
+    "region": "cn-beijing",
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+    "timeout": 300,
+    "poll_interval": 5
+  },
+  "production": {
+    "ark_api_key": "",
+    "region": "cn-beijing",
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+    "timeout": 300,
+    "poll_interval": 5
+  }
+}
