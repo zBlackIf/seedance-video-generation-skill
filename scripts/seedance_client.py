@@ -158,23 +158,23 @@ class SeedanceClient:
         获取 API Key
 
         优先级：
-        1. VOLCENGINE_API_KEY 环境变量
-        2. 当前目录 .env 文件中的 VOLCENGINE_API_KEY
+        1. ARK_API_KEY 环境变量
+        2. 当前目录 .env 文件中的 ARK_API_KEY
         3. 交互式提示
         """
         # 尝试环境变量
-        api_key = os.environ.get("VOLCENGINE_API_KEY")
+        api_key = os.environ.get("ARK_API_KEY")
         if api_key:
             return api_key
 
         # 尝试 .env 文件
         load_dotenv()
-        api_key = os.environ.get("VOLCENGINE_API_KEY")
+        api_key = os.environ.get("ARK_API_KEY")
         if api_key:
             return api_key
 
         raise MissingAPIKeyError(
-            "API Key not found. Set VOLCENGINE_API_KEY environment variable, "
+            "API Key not found. Set ARK_API_KEY environment variable, "
             "add it to .env file, or pass --api-key parameter."
         )
 

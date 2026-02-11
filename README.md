@@ -33,7 +33,7 @@ pip install -r scripts/requirements.txt
 在 [Volcengine 控制台](https://console.volcengine.com/ark) 获取 API Key，然后设置环境变量：
 
 ```bash
-export VOLCENGINE_API_KEY="your-api-key-here"
+export ARK_API_KEY="your-api-key-here"
 ```
 
 或在当前目录创建 `.env` 文件：

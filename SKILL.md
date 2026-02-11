@@ -37,12 +37,12 @@ Seedance API 使用 Bearer Token 认证。API Key 获取方式：
 
 设置 API Key（推荐使用环境变量）：
 ```bash
-export VOLCENGINE_API_KEY="your-api-key-here"
+export ARK_API_KEY="your-api-key-here"
 ```
 
 或在当前目录创建 `.env` 文件：
 ```
-VOLCENGINE_API_KEY=your-api-key-here
+ARK_API_KEY=your-api-key-here
 ```
 
 所有脚本也支持 `--api-key` 参数临时覆盖。
