@@ -143,7 +143,7 @@ python scripts/query_task.py --watch <task_id> --poll-interval 10
 # JSON 格式输出
 python scripts/query_task.py --json <task_id>
 
-# 完成后自动下载
+# 完成后自动下载到指定路径
 python scripts/query_task.py --watch <task_id> --download ./output.mp4
 ```
 

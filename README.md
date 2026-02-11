@@ -49,6 +49,12 @@ ARK_API_KEY=your-api-key-here
 ```bash
 # 基本文生视频
 python scripts/create_task.py --prompt "一只可爱的小猫在阳光下打哈欠"
+
+# 自动下载到本地（默认 output/ 文件夹）
+python scripts/create_task.py --prompt "一只可爱的小猫在阳光下打哈欠" --auto-download
+
+# 指定下载目录
+python scripts/create_task.py --prompt "一只可爱的小猫在阳光下打哈欠" --auto-download --output-dir ./videos
 ```
 
 ### 图生视频

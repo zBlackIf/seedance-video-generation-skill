@@ -3,6 +3,7 @@
 创建视频生成任务
 
 支持文生视频（T2V）和图生视频（I2V）模式。
+生成任务后可自动监控并下载视频。
 """
 
 import argparse
@@ -14,11 +15,21 @@ from typing import Optional, List, Dict, Any
 from pathlib import Path
 
 try:
-    from seedance_client import SeedanceClient, InvalidRequestError
+    from seedance_client import (
+        SeedanceClient,
+        InvalidRequestError,
+        TaskStatus,
+        TimeoutError
+    )
 except ImportError:
     # 添加当前目录到路径
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from seedance_client import SeedanceClient, InvalidRequestError
+    from seedance_client import (
+        SeedanceClient,
+        InvalidRequestError,
+        TaskStatus,
+        TimeoutError
+    )
 
 
 def read_image_file(file_path: str) -> str:
@@ -119,6 +130,107 @@ def parse_bool(value: str) -> bool:
     raise ValueError(f"Invalid boolean value: {value}")
 
 
+def get_output_dir(output_dir: Optional[str]) -> Path:
+    """
+    获取输出目录
+
+    Args:
+        output_dir: 指定的输出目录
+
+    Returns:
+        Path 对象
+    """
+    if output_dir:
+        path = Path(output_dir)
+    else:
+        # 默认使用项目根目录下的 output 文件夹
+        path = Path(__file__).parent.parent / "output"
+
+    # 创建目录
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def generate_filename(task_id: str, prompt: Optional[str] = None) -> str:
+    """
+    生成文件名
+
+    Args:
+        task_id: 任务 ID
+        prompt: 文本提示词（用于生成文件名）
+
+    Returns:
+        文件名
+    """
+    # 提取任务 ID 的后缀部分
+    task_suffix = task_id.split("-")[-1]
+
+    if prompt:
+        # 使用提示词的前几个字符作为文件名
+        import re
+        # 移除特殊字符，只保留中英文、数字、下划线和短横线
+        clean_prompt = re.sub(r'[^\w\u4e00-\u9fff-]', '_', prompt[:20])
+        return f"{clean_prompt}_{task_suffix}.mp4"
+
+    return f"video_{task_suffix}.mp4"
+
+
+def download_video(url: str, output_path: Path):
+    """
+    下载视频文件
+
+    Args:
+        url: 视频下载 URL
+        output_path: 输出文件路径
+    """
+    try:
+        import requests
+        from tqdm import tqdm
+    except ImportError:
+        import requests
+        tqdm = None
+
+    print(f"\n📥 Downloading video to: {output_path}")
+
+    response = requests.get(url, stream=True)
+    response.raise_for_status()
+
+    total_size = int(response.headers.get("content-length", 0))
+
+    with open(output_path, "wb") as f:
+        if tqdm:
+            progress_bar = tqdm(
+                total=total_size,
+                unit="B",
+                unit_scale=True,
+                desc="Downloading"
+            )
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+                progress_bar.update(len(chunk))
+            progress_bar.close()
+        else:
+            downloaded = 0
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+                downloaded += len(chunk)
+                if total_size > 0:
+                    percent = downloaded / total_size * 100
+                    print(f"\r{percent:.1f}%", end="", flush=True)
+            print()
+
+    file_size_mb = output_path.stat().st_size / 1024 / 1024
+    print(f"✅ Video saved: {output_path} ({file_size_mb:.2f} MB)")
+
+
+def poll_callback(task):
+    """轮询回调函数"""
+    if task.status == TaskStatus.RUNNING:
+        print(f"\r🔄 Running... (Task: {task.id[:8]}...)", end="", flush=True)
+    elif task.status == TaskStatus.QUEUED:
+        print(f"\r⏳ Queued... (Task: {task.id[:8]}...)", end="", flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Create a video generation task using Seedance API",
@@ -127,6 +239,9 @@ def main():
 Examples:
   # Text-to-video
   python create_task.py --prompt "一只可爱的小猫在阳光下打哈欠"
+
+  # Text-to-video with auto-download
+  python create_task.py --prompt "一只可爱的小猫在阳光下打哈欠" --auto-download
 
   # Image-to-video
   python create_task.py --prompt "镜头缓慢拉远" --image cat.jpg
@@ -141,11 +256,8 @@ Examples:
     --ratio 21:9 \\
     --duration 8
 
-  # Draft mode
-  python create_task.py --prompt "测试场景" --draft true
-
-  # Generate from draft
-  python create_task.py --draft-task-id <draft-task-id>
+  # Draft mode with auto-download
+  python create_task.py --prompt "测试场景" --draft true --auto-download
         """
     )
 
@@ -239,7 +351,7 @@ Examples:
         help="Generate final video from draft task ID"
     )
     parser.add_argument(
-        "--service-tier",
+        "--service",
         type=str,
         choices=["default", "flex"],
         default="default",
@@ -256,7 +368,36 @@ Examples:
     parser.add_argument(
         "--api-key",
         type=str,
-        help="Override API Key (overrides VOLCENGINE_API_KEY env variable)"
+        help="Override API Key (overrides ARK_API_KEY env variable)"
+    )
+
+    # Watch 和下载参数
+    parser.add_argument(
+        "--watch",
+        action="store_true",
+        help="Watch task until completion"
+    )
+    parser.add_argument(
+        "--auto-download",
+        action="store_true",
+        help="Automatically download video after completion (implies --watch)"
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        help="Output directory for downloaded videos (default: ./output)"
+    )
+    parser.add_argument(
+        "--poll-interval",
+        type=int,
+        default=5,
+        help="Seconds between polls when watching (default: 5)"
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=600,
+        help="Timeout in seconds when watching (default: 600)"
     )
 
     # 输出格式
@@ -281,6 +422,10 @@ Examples:
 
     if args.duration != -1 and (args.duration < 2 or args.duration > 12):
         parser.error("--duration must be between 2 and 12, or -1 for auto")
+
+    # auto-download 意味着 watch
+    if args.auto_download:
+        args.watch = True
 
     # 解析参考图像
     reference_images = None
@@ -310,7 +455,7 @@ Examples:
         "ratio": args.ratio,
         "duration": args.duration,
         "watermark": parse_bool(args.watermark),
-        "service_tier": args.service_tier,
+        "service_tier": args.service,
         "return_last_frame": parse_bool(args.return_last_frame)
     }
 
@@ -330,9 +475,11 @@ Examples:
     # 创建客户端并发送请求
     try:
         client = SeedanceClient(api_key=args.api_key)
+
+        # 创建任务
         task = client.create_task(payload)
 
-        # 输出结果
+        # 输出创建结果
         if args.json:
             import json
             result = {
@@ -346,28 +493,75 @@ Examples:
             }
             print(json.dumps(result, indent=2, ensure_ascii=False))
         else:
-            print("Task created successfully!")
-            print(f"  Task ID: {task.id}")
-            print(f"  Status: {task.status.value}")
-            print(f"  Model: {task.model}")
-            print(f"  Created at: {task.created_at}")
+            print("✅ Task created successfully!")
+            print(f"   Task ID: {task.id}")
+            print(f"   Status: {task.status.value}")
+            print(f"   Model: {task.model}")
+            print(f"   Created at: {task.created_at}")
             if task.resolution:
-                print(f"  Resolution: {task.resolution}")
+                print(f"   Resolution: {task.resolution}")
             if task.ratio:
-                print(f"  Ratio: {task.ratio}")
+                print(f"   Ratio: {task.ratio}")
             if task.duration:
-                print(f"  Duration: {task.duration}s")
+                print(f"   Duration: {task.duration}s")
+
+        # Watch 模式
+        if args.watch:
+            print(f"\n⏱ Watching task: {task.id}")
+            print(f"   Poll interval: {args.poll_interval}s, Timeout: {args.timeout}s")
             print()
-            print("To check the task status, run:")
-            print(f"  python query_task.py --watch {task.id}")
+
+            task = client.wait_for_completion(
+                task_id=task.id,
+                poll_interval=args.poll_interval,
+                timeout=args.timeout,
+                callback=poll_callback
+            )
+
+            # 清除进度显示
+            print("\r" + " " * 60 + "\r", end="", flush=True)
+
+            # 输出最终状态
+            status_emoji = {
+                TaskStatus.SUCCEEDED: "✅",
+                TaskStatus.FAILED: "❌",
+                TaskStatus.EXPIRED: "⏰",
+                TaskStatus.CANCELLED: "🚫"
+            }
+            emoji = status_emoji.get(task.status, "❓")
+
+            print(f"{emoji} Task completed!")
+            print(f"   Status: {task.status.value}")
+            if task.status == TaskStatus.FAILED and task.error_message:
+                print(f"   Error: {task.error_message}")
+
+            # 成功时显示信息
+            if task.status == TaskStatus.SUCCEEDED:
+                if task.usage:
+                    input_tokens = task.usage.get("input_tokens", 0)
+                    output_tokens = task.usage.get("output_tokens", 0)
+                    print(f"   Usage: {input_tokens} input + {output_tokens} output tokens")
+
+                # 自动下载
+                if task.video_url and args.auto_download:
+                    output_dir = get_output_dir(args.output_dir)
+                    filename = generate_filename(task.id, args.prompt)
+                    output_path = output_dir / filename
+                    download_video(task.video_url, output_path)
+                elif task.video_url:
+                    print(f"\n📹 Video URL: {task.video_url}")
+                    print("   (URL valid for 24 hours)")
 
     except InvalidRequestError as e:
-        print(f"API Error: {e}", file=sys.stderr)
+        print(f"❌ API Error: {e}", file=sys.stderr)
         if e.response:
-            print(f"Details: {e.response}", file=sys.stderr)
+            print(f"   Details: {e.response}", file=sys.stderr)
+        sys.exit(1)
+    except TimeoutError as e:
+        print(f"\n⏰ Error: {e}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"❌ Error: {e}", file=sys.stderr)
         sys.exit(1)
 
 
