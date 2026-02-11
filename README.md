@@ -39,7 +39,7 @@ export ARK_API_KEY="your-api-key-here"
 或在当前目录创建 `.env` 文件：
 
 ```
-VOLCENGINE_API_KEY=your-api-key-here
+ARK_API_KEY=your-api-key-here
 ```
 
 ## 快速开始
